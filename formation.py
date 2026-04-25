@@ -1,0 +1,45 @@
+import numpy as np
+
+
+# 2D body-frame offsets per robot; x = along path, y = lateral (left of path)
+class Formation:
+    def __init__(self, offsets: np.ndarray):
+        self.offsets = np.asarray(offsets, dtype=float)
+
+    @property
+    def n(self) -> int:
+        return len(self.offsets)
+
+    def desired_positions(self, centroid: np.ndarray, heading: float) -> np.ndarray:
+        c, s = np.cos(heading), np.sin(heading)
+        R = np.array([[c, -s], [s, c]])
+        return centroid + (R @ self.offsets.T).T
+
+    @staticmethod
+    def line(n: int, spacing: float = 1.0) -> "Formation":
+        # n robots evenly spread laterally
+        lateral = np.linspace(-(n - 1) / 2.0, (n - 1) / 2.0, n) * spacing
+        offsets = np.column_stack([np.zeros(n), lateral])
+        return Formation(offsets)
+
+    @staticmethod
+    def triangle(spacing: float = 1.0) -> "Formation":
+        # equilateral-style triangle
+        offsets = np.array([
+            [0.0,  0.6],
+            [-0.5, -0.3],
+            [0.5, -0.3],
+        ]) * spacing
+        return Formation(offsets)
+
+    @staticmethod
+    def diamond(spacing: float = 1.0) -> "Formation":
+        # diamond shape along and across the path
+        # absolute offsets from centroid: [1,0], [0,0.5], [0,-0.5], [-1,0]
+        offsets = np.array([
+            [ 1,  0.0],   # robot 0: front
+            [ 0.0,  1],   # robot 1: left
+            [ 0.0, -1],   # robot 2: right
+            [-1,  0.0],   # robot 3: back
+        ]) * spacing
+        return Formation(offsets)
