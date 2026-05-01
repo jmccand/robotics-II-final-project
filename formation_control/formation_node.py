@@ -1,17 +1,8 @@
-import os
-import sys
-
 import numpy as np
 import rclpy
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
-
-# FORMATION_ROOT is set by hardware.launch.py to the repo root directory so
-# that the installed node can still import dynamics, formation, path, etc.
-_ROOT = os.environ.get('FORMATION_ROOT', '')
-if _ROOT and _ROOT not in sys.path:
-    sys.path.insert(0, _ROOT)
 
 from behavior.behavior_controller import BehaviorController
 from leader_follower.lf_controller import LeaderFollowerController
