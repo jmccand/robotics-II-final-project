@@ -1,7 +1,7 @@
 import os as _os
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable
+from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
@@ -40,6 +40,7 @@ def generate_launch_description():
         executable='formation_node',
         name='formation_node',
         output='screen',
+        additional_env={'FORMATION_ROOT': _PROJECT_ROOT},
         parameters=[{
             'controller':        ParameterValue(LaunchConfiguration('controller'),        value_type=str),
             'formation_type':    ParameterValue(LaunchConfiguration('formation_type'),    value_type=str),
@@ -54,6 +55,4 @@ def generate_launch_description():
         }],
     )
 
-    set_root = SetEnvironmentVariable('FORMATION_ROOT', _PROJECT_ROOT)
-
-    return LaunchDescription([set_root] + args + [node])
+    return LaunchDescription(args + [node])
