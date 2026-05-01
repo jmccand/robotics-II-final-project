@@ -1,8 +1,15 @@
+import os as _os
+
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
+
+# Resolve project root at parse time from this file's location:
+#   ros2/launch/hardware.launch.py  →  parents[2] = repo root
+_PROJECT_ROOT = str(_os.path.normpath(_os.path.join(_os.path.dirname(_os.path.realpath(__file__)), '..', '..')))
+
 
 
 def generate_launch_description():
@@ -47,4 +54,6 @@ def generate_launch_description():
         }],
     )
 
-    return LaunchDescription(args + [node])
+    set_root = SetEnvironmentVariable('FORMATION_ROOT', _PROJECT_ROOT)
+
+    return LaunchDescription([set_root] + args + [node])

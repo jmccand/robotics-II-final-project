@@ -1,4 +1,4 @@
-import pathlib
+import os
 import sys
 
 import numpy as np
@@ -7,11 +7,11 @@ from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 
-# Make project root importable so existing controllers, Formation, Path, etc.
-# can be used without modification.
-_ROOT = pathlib.Path(__file__).resolve().parents[2]
-if str(_ROOT) not in sys.path:
-    sys.path.insert(0, str(_ROOT))
+# FORMATION_ROOT is set by hardware.launch.py to the repo root directory so
+# that the installed node can still import dynamics, formation, path, etc.
+_ROOT = os.environ.get('FORMATION_ROOT', '')
+if _ROOT and _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
 from behavior.behavior_controller import BehaviorController
 from leader_follower.lf_controller import LeaderFollowerController
