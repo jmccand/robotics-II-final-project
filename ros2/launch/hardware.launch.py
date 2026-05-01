@@ -2,6 +2,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -33,16 +34,16 @@ def generate_launch_description():
         name='formation_node',
         output='screen',
         parameters=[{
-            'controller':        LaunchConfiguration('controller'),
-            'formation_type':    LaunchConfiguration('formation_type'),
-            'formation_spacing': LaunchConfiguration('formation_spacing'),
-            'n_robots':          LaunchConfiguration('n_robots'),
-            'path_type':         LaunchConfiguration('path_type'),
-            'path_length':       LaunchConfiguration('path_length'),
-            'waypoints_json':    LaunchConfiguration('waypoints_json'),
-            'path_speed':        LaunchConfiguration('path_speed'),
-            'max_hw_speed':      LaunchConfiguration('max_hw_speed'),
-            'dt':                LaunchConfiguration('dt'),
+            'controller':        ParameterValue(LaunchConfiguration('controller'),        value_type=str),
+            'formation_type':    ParameterValue(LaunchConfiguration('formation_type'),    value_type=str),
+            'formation_spacing': ParameterValue(LaunchConfiguration('formation_spacing'), value_type=float),
+            'n_robots':          ParameterValue(LaunchConfiguration('n_robots'),          value_type=int),
+            'path_type':         ParameterValue(LaunchConfiguration('path_type'),         value_type=str),
+            'path_length':       ParameterValue(LaunchConfiguration('path_length'),       value_type=float),
+            'waypoints_json':    ParameterValue(LaunchConfiguration('waypoints_json'),    value_type=str),
+            'path_speed':        ParameterValue(LaunchConfiguration('path_speed'),        value_type=float),
+            'max_hw_speed':      ParameterValue(LaunchConfiguration('max_hw_speed'),      value_type=float),
+            'dt':                ParameterValue(LaunchConfiguration('dt'),                value_type=float),
         }],
     )
 
