@@ -80,19 +80,20 @@ class FormationNode(Node):
 
         # Open /dev/tty directly so the keyboard listener works even when
         # ros2 launch has redirected stdin (which makes isatty() return False).
+        self._tty = None
+        self._tty_old_settings = None  # saved here so main() can restore on any exit
         try:
             self._tty = open('/dev/tty', 'rb', buffering=0)
+            self._tty_old_settings = termios.tcgetattr(self._tty.fileno())
             t = threading.Thread(target=self._keyboard_listener, daemon=True)
             t.start()
             self.get_logger().info('Keyboard listener active — press SPACE to start/pause')
         except OSError as e:
-            self._tty = None
             self.get_logger().warn(f'Keyboard listener unavailable: {e}')
 
     def _keyboard_listener(self):
         """Read keypresses from /dev/tty in raw mode. SPACE toggles start/pause."""
         fd = self._tty.fileno()
-        old = termios.tcgetattr(fd)
         try:
             tty.setraw(fd)
             while rclpy.ok():
@@ -106,9 +107,8 @@ class FormationNode(Node):
                         self.get_logger().info('*** RUNNING — press SPACE to pause ***')
                 elif ch == b'\x03':  # Ctrl+C
                     break
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old)
-            self._tty.close()
+        except Exception:
+            pass  # terminal closed during shutdown — handled in main()
 
     def _stop_robots(self):
         stop = Twist()
@@ -162,5 +162,14 @@ def main(args=None):
         pass
     finally:
         node._stop_robots()
+        # Restore terminal settings before exit so the shell isn't left in raw mode.
+        # This runs in the main thread, so it's guaranteed even when the daemon
+        # keyboard thread is killed by Ctrl-C before its own cleanup can execute.
+        if node._tty is not None and node._tty_old_settings is not None:
+            try:
+                termios.tcsetattr(node._tty.fileno(), termios.TCSADRAIN, node._tty_old_settings)
+            except Exception:
+                pass
+            node._tty.close()
         node.destroy_node()
         rclpy.shutdown()
