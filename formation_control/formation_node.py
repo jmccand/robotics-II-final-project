@@ -1,3 +1,5 @@
+import os
+import signal
 import termios
 import threading
 import tty
@@ -105,7 +107,8 @@ class FormationNode(Node):
                         self.get_logger().info('*** PAUSED — press SPACE to resume ***')
                     else:
                         self.get_logger().info('*** RUNNING — press SPACE to pause ***')
-                elif ch == b'\x03':  # Ctrl+C
+                elif ch == b'\x03':  # Ctrl+C — raw mode ate the signal, re-raise it
+                    os.kill(os.getpid(), signal.SIGINT)
                     break
         except Exception:
             pass  # terminal closed during shutdown — handled in main()
