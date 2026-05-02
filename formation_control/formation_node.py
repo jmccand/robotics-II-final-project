@@ -1,3 +1,8 @@
+import sys
+import termios
+import threading
+import tty
+
 import numpy as np
 import rclpy
 from geometry_msgs.msg import Twist
@@ -49,12 +54,13 @@ class FormationNode(Node):
         self._dt           = self.get_parameter('dt').value
 
         # --- state ---
-        self._states   = np.zeros((self._n_robots, 4))   # [x, y, vx_world, vy_world]
-        self._headings = np.zeros(self._n_robots)
-        self._received = [False] * self._n_robots
-        self._path     = None   # built on first leader odom
+        self._states    = np.zeros((self._n_robots, 4))  # [x, y, vx_world, vy_world]
+        self._headings  = np.zeros(self._n_robots)
+        self._received  = [False] * self._n_robots
+        self._path      = None  # built on first leader odom
         self._formation = None
-        self._t        = 0.0
+        self._t         = 0.0
+        self._paused    = True  # start paused; SPACE toggles
 
         # --- ROS2 interfaces ---
         self._cmd_pubs = [
@@ -62,7 +68,6 @@ class FormationNode(Node):
             for topic in _CMD_TOPICS[:self._n_robots]
         ]
         for i, topic in enumerate(_ODOM_TOPICS[:self._n_robots]):
-            # Capture i in default arg to avoid closure over loop variable
             self.create_subscription(
                 Odometry, topic,
                 lambda msg, idx=i: self._odom_cb(msg, idx),
@@ -71,6 +76,42 @@ class FormationNode(Node):
 
         self._timer = self.create_timer(self._dt, self._control_loop)
         self.get_logger().info('Waiting for odometry from all robots...')
+
+        # Start keyboard listener in a background daemon thread.
+        # Skipped gracefully if stdin is not a TTY (e.g. piped output).
+        if sys.stdin.isatty():
+            t = threading.Thread(target=self._keyboard_listener, daemon=True)
+            t.start()
+        else:
+            self.get_logger().warn(
+                'stdin is not a TTY — keyboard listener disabled. '
+                'Run with output:=screen and an interactive terminal to use SPACE.'
+            )
+
+    def _keyboard_listener(self):
+        """Read keypresses in raw terminal mode. SPACE toggles start/pause."""
+        fd = sys.stdin.fileno()
+        old = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            while rclpy.ok():
+                ch = sys.stdin.read(1)
+                if ch == ' ':
+                    self._paused = not self._paused
+                    if self._paused:
+                        self._stop_robots()
+                        self.get_logger().info('PAUSED  — press SPACE to resume')
+                    else:
+                        self.get_logger().info('RUNNING — press SPACE to pause')
+                elif ch == '\x03':  # Ctrl+C
+                    break
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+    def _stop_robots(self):
+        stop = Twist()
+        for pub in self._cmd_pubs:
+            pub.publish(stop)
 
     def _odom_cb(self, msg: Odometry, robot_idx: int):
         state, yaw = odom_to_state(msg)
@@ -90,9 +131,10 @@ class FormationNode(Node):
                 f'{self.get_parameter("formation_type").value} '
                 f'({self._formation.n} robots)'
             )
+            self.get_logger().info('Ready — press SPACE to start')
 
     def _control_loop(self):
-        if self._path is None or not all(self._received):
+        if self._path is None or not all(self._received) or self._paused:
             return
 
         for i in range(self._n_robots):
@@ -117,9 +159,6 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
-        # Stop all robots before shutting down
-        stop = Twist()
-        for pub in node._cmd_pubs:
-            pub.publish(stop)
+        node._stop_robots()
         node.destroy_node()
         rclpy.shutdown()
