@@ -1,4 +1,3 @@
-import sys
 import termios
 import threading
 import tty
@@ -77,36 +76,37 @@ class FormationNode(Node):
         self._timer = self.create_timer(self._dt, self._control_loop)
         self.get_logger().info('Waiting for odometry from all robots...')
 
-        # Start keyboard listener in a background daemon thread.
-        # Skipped gracefully if stdin is not a TTY (e.g. piped output).
-        if sys.stdin.isatty():
+        # Open /dev/tty directly so the keyboard listener works even when
+        # ros2 launch has redirected stdin (which makes isatty() return False).
+        try:
+            self._tty = open('/dev/tty', 'rb', buffering=0)
             t = threading.Thread(target=self._keyboard_listener, daemon=True)
             t.start()
-        else:
-            self.get_logger().warn(
-                'stdin is not a TTY — keyboard listener disabled. '
-                'Run with output:=screen and an interactive terminal to use SPACE.'
-            )
+            self.get_logger().info('Keyboard listener active — press SPACE to start/pause')
+        except OSError as e:
+            self._tty = None
+            self.get_logger().warn(f'Keyboard listener unavailable: {e}')
 
     def _keyboard_listener(self):
-        """Read keypresses in raw terminal mode. SPACE toggles start/pause."""
-        fd = sys.stdin.fileno()
+        """Read keypresses from /dev/tty in raw mode. SPACE toggles start/pause."""
+        fd = self._tty.fileno()
         old = termios.tcgetattr(fd)
         try:
             tty.setraw(fd)
             while rclpy.ok():
-                ch = sys.stdin.read(1)
-                if ch == ' ':
+                ch = self._tty.read(1)
+                if ch == b' ':
                     self._paused = not self._paused
                     if self._paused:
                         self._stop_robots()
-                        self.get_logger().info('PAUSED  — press SPACE to resume')
+                        self.get_logger().info('*** PAUSED — press SPACE to resume ***')
                     else:
-                        self.get_logger().info('RUNNING — press SPACE to pause')
-                elif ch == '\x03':  # Ctrl+C
+                        self.get_logger().info('*** RUNNING — press SPACE to pause ***')
+                elif ch == b'\x03':  # Ctrl+C
                     break
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old)
+            self._tty.close()
 
     def _stop_robots(self):
         stop = Twist()
