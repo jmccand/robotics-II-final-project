@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # formation control experiment runner
 # usage: python main.py --env <env> --controller <ctrl> [--formation <f>] [--ic <f>] [--n N] [--spacing S] [--frames N] [--save]
 # example: python main.py --env obstacles --controller virtual_structure --formation diamond --save
