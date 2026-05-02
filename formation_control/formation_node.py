@@ -139,7 +139,10 @@ class FormationNode(Node):
             self.get_logger().info('Ready — press SPACE to start')
 
     def _control_loop(self):
-        if self._path is None or not all(self._received) or self._paused:
+        if self._paused:
+            self._stop_robots()
+            return
+        if self._path is None or not all(self._received):
             return
 
         for i in range(self._n_robots):
