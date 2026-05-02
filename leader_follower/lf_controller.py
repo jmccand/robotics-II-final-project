@@ -10,6 +10,7 @@ class LeaderFollowerController(FormationController):
     def __init__(
         self,
         k_leader: float = 8.0,
+        k_tangent: float = 1.5,
         w_align: float = 0.5,
         k_follow: float = 8.0,
         w_avoid: float = 0.25,
@@ -18,6 +19,7 @@ class LeaderFollowerController(FormationController):
         obs_avoid_radius: float = 3.0,
     ):
         self.k_leader = k_leader
+        self.k_tangent = k_tangent  # forward drive along path tangent for leader
         self.w_align = w_align
         self.k_follow = k_follow
         self.w_avoid = w_avoid
@@ -73,8 +75,9 @@ class LeaderFollowerController(FormationController):
             path_heading = np.arctan2(tang[1], tang[0])
             slot = formation.desired_positions(path.point(t_proj), path_heading)[0]
             f_path = self.k_leader * (slot - pos)
+            f_along = self.k_tangent * tang  # constant forward drive along path tangent
             f_align = -self.w_align * vel
-            return f_path + f_align + f_avoid_robot + f_avoid_obs
+            return f_path + f_along + f_align + f_avoid_robot + f_avoid_obs
         else:
             parent = robot_idx - 1
             slot = self._chain_slot(robot_idx, states, formation, path, t)
