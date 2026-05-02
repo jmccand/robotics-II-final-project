@@ -66,6 +66,8 @@ class FormationNode(Node):
             self.create_publisher(Twist, topic, 10)
             for topic in _CMD_TOPICS[:self._n_robots]
         ]
+        self._stop_robots()  # zero cmd_vel immediately so robots don't coast on startup
+
         for i, topic in enumerate(_ODOM_TOPICS[:self._n_robots]):
             self.create_subscription(
                 Odometry, topic,
