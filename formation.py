@@ -16,6 +16,12 @@ class Formation:
         return centroid + (R @ self.offsets.T).T
 
     @staticmethod
+    def column(n: int, spacing: float = 1.0) -> "Formation":
+        # n robots in single file along the path direction, leader at front
+        offsets = np.column_stack([-np.arange(n) * spacing, np.zeros(n)])
+        return Formation(offsets)
+
+    @staticmethod
     def line(n: int, spacing: float = 1.0) -> "Formation":
         # n robots evenly spread laterally
         lateral = np.linspace(-(n - 1) / 2.0, (n - 1) / 2.0, n) * spacing

@@ -71,10 +71,10 @@ class VirtualStructureController(FormationController):
     ) -> np.ndarray:
         pos = states[robot_idx, :2]
 
-        # Step 1: fit the virtual structure to current robot positions
+        # step 1: fit the virtual structure to current robot positions
         centroid_fit, _, R_fit = self._get_fit(states, formation, t)
 
-        # Step 2: rigid-body transform from fitted pose to ideal pose on path
+        # step 2: rigid-body transform from fitted pose to ideal pose on path
         tang = path.tangent(t)
         path_heading = np.arctan2(tang[1], tang[0])
         c, s = np.cos(path_heading), np.sin(path_heading)
@@ -82,7 +82,7 @@ class VirtualStructureController(FormationController):
         R_delta = R_ideal @ R_fit.T
         c_ideal = path.point(t)
 
-        # Step 3: apply the formation-level transform to this robot's position
+        # step 3: apply the formation-level transform to this robot's position
         des_slot = R_delta @ (pos - centroid_fit) + c_ideal
         ideal_slot = formation.desired_positions(c_ideal, path_heading)[robot_idx]
 

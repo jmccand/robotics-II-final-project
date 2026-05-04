@@ -80,7 +80,7 @@ robot2/ekf_filter_node:
 # sensor_msgs/Imu). To add an input, simply append the next number in the sequence to its "base" name, e.g., odom0,
 # odom1, twist0, twist1, imu0, imu1, imu2, etc. The value should be the topic name. These parameters obviously have no
 # default values, and must be specified.
-        # Changed: relative path resolves to /<robot_name>/odom_raw under PushRosNamespace; original /odom_raw bypassed the namespace.
+        # changed: relative path resolves to /<robot_name>/odom_raw under PushRosNamespace; original /odom_raw bypassed the namespace.
         odom0: odom_raw
 
 # Each sensor reading updates some or all of the filter's state. These options give you greater control over which

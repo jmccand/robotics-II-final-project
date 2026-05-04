@@ -8,7 +8,7 @@ from nav_msgs.msg import Odometry
 
 
 def yaw_from_quaternion(q) -> float:
-    """Extract yaw from a geometry_msgs/Quaternion without tf_transformations."""
+    # extracts yaw from a geometry_msgs/Quaternion without tf_transformations
     return math.atan2(
         2.0 * (q.w * q.z + q.x * q.y),
         1.0 - 2.0 * (q.y * q.y + q.z * q.z),
@@ -16,11 +16,8 @@ def yaw_from_quaternion(q) -> float:
 
 
 def odom_to_state(msg: Odometry) -> tuple[np.ndarray, float]:
-    """Convert nav_msgs/Odometry to (state[4], yaw).
-
-    state = [x, y, vx_world, vy_world] matching the simulation's states[i].
-    Velocity is rotated from body frame (odom twist) to world frame.
-    """
+    # converts nav_msgs/Odometry to (state[4], yaw).
+    # state = [x, y, vx_world, vy_world]; velocity is rotated from body frame to world frame.
     x = msg.pose.pose.position.x
     y = msg.pose.pose.position.y
     yaw = yaw_from_quaternion(msg.pose.pose.orientation)
@@ -36,11 +33,7 @@ def odom_to_state(msg: Odometry) -> tuple[np.ndarray, float]:
 
 
 def world_to_body_twist(vx_world: float, vy_world: float, theta: float) -> Twist:
-    """Rotate a world-frame velocity vector into a robot body-frame Twist.
-
-    For holonomic mecanum robots: linear.x = forward, linear.y = lateral.
-    angular.z is always 0 — formation controllers don't command rotation.
-    """
+    # rotates a world-frame velocity into a body-frame Twist (linear.x=fwd, linear.y=lateral, angular.z=0).
     twist = Twist()
     c, s = math.cos(theta), math.sin(theta)
     twist.linear.x = float( c * vx_world + s * vy_world)

@@ -14,7 +14,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_ros/transform_broadcaster.h>
-// Removed: #include <turtlesim/msg/pose.hpp> — unused; paired with removal of find_package(turtlesim) in CMakeLists.txt.
+// removed: #include <turtlesim/msg/pose.hpp> — unused; paired with removal of find_package(turtlesim) in CMakeLists.txt.
 
 #include <memory>
 #include <string>
@@ -73,11 +73,17 @@ class OdomPublisher:public rclcpp ::Node
 	  	  void handle_vel(const std::shared_ptr<geometry_msgs::msg::Twist > msg)
 	  	  {
             //geometry_msgs::msg::Twist twist;
-                       
+
 	  	  	rclcpp::Time curren_time = rclcpp::Clock().now();
 	  	  	linear_velocity_x_ = msg->linear.x * linear_scale_x_;// scale = 1
     		linear_velocity_y_ = msg->linear.y * linear_scale_y_;
     		angular_velocity_z_ = msg->angular.z ;
+            // fixed: last_vel_time_ default-initialises to epoch 0, making vel_dt_ on the
+            // first callback equal to the current Unix timestamp (~1.78e9 s) and causing a
+            // massive spurious position jump. seed it on the first message instead.
+            if (last_vel_time_.nanoseconds() == 0) {
+                last_vel_time_ = curren_time;
+            }
 			vel_dt_ = (curren_time - last_vel_time_).seconds();
             //std::cout<<"curren_time: "<<curren_time.seconds()<<std::endl;
            // std::cout<<"vel_dt: "<<vel_dt_<<std::endl;

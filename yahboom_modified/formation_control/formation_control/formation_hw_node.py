@@ -31,10 +31,10 @@ class FormationHardwareNode(Node):
         super().__init__('formation_hw_node')
 
         self.declare_parameter('controller', 'leader_follower')
-        self.declare_parameter('formation_type', 'line')
+        self.declare_parameter('formation_type', 'column')
         self.declare_parameter('formation_spacing', 0.5)
         self.declare_parameter('num_robots', 2)
-        self.declare_parameter('max_hw_speed', 0.3)
+        self.declare_parameter('max_hw_speed', 0.15)
         self.declare_parameter('path_length', 2.0)
         self.declare_parameter('path_angle_deg', 0.0)
         self.declare_parameter('use_robot_heading', False)
@@ -61,8 +61,10 @@ class FormationHardwareNode(Node):
             self.formation = Formation.triangle(spacing)
         elif formation_type == 'diamond':
             self.formation = Formation.diamond(spacing)
-        else:
+        elif formation_type == 'line':
             self.formation = Formation.line(self.n, spacing)
+        else:
+            self.formation = Formation.column(self.n, spacing)
 
         if controller_type == 'behavior':
             self.controller = BehaviorController()
@@ -72,11 +74,11 @@ class FormationHardwareNode(Node):
             self.controller = LeaderFollowerController()
 
         # TF2 — positions come from map→robot/base_footprint, shared coordinate frame for all robots.
-        # Each robot's odometry frame has a different origin, so odom topics cannot be compared directly.
+        # each robot's odometry frame has a different origin, so odom topics cannot be compared directly.
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
-        # Per-robot state in map frame: [x, y, vx_world, vy_world]
+        # per-robot state in map frame: [x, y, vx_world, vy_world]
         self.states = np.zeros((self.n, 4))
         self.headings = np.zeros(self.n)
         self._prev_xy = None   # set on first successful lookup to avoid a velocity spike
@@ -100,11 +102,8 @@ class FormationHardwareNode(Node):
         )
 
     def _lookup_all_poses(self) -> bool:
-        """
-        Populate self.states and self.headings from TF.
-        Returns False (and logs a warning) if any transform is unavailable.
-        All positions are in self.map_frame so robots share a common coordinate system.
-        """
+        # populates self.states[:, :2] and self.headings from TF; returns False if any lookup fails.
+        # all positions are in self.map_frame so both robots share a common coordinate system.
         new_xy = np.zeros((self.n, 2))
         new_headings = np.zeros(self.n)
 
@@ -125,7 +124,7 @@ class FormationHardwareNode(Node):
             new_xy[i] = [t.transform.translation.x, t.transform.translation.y]
             new_headings[i] = _quat_to_yaw(t.transform.rotation)
 
-        # First successful lookup: initialise position, zero velocity to avoid a spike.
+        # first successful lookup: initialise position, zero velocity to avoid a spike.
         if self._prev_xy is None:
             self._prev_xy = new_xy.copy()
 
@@ -140,7 +139,6 @@ class FormationHardwareNode(Node):
 
     def _init_path(self) -> None:
         start = self.states[0, :2].copy()
-        # use_robot_heading: align path with the leader's current heading instead of a fixed map angle.
         angle = self.headings[0] if self.use_robot_heading else self.path_angle
         direction = np.array([math.cos(angle), math.sin(angle)])
         end = start + direction * self.path_length
@@ -165,7 +163,7 @@ class FormationHardwareNode(Node):
             if speed > self.max_speed:
                 v_cmd = v_cmd * (self.max_speed / speed)
 
-            # Convert map-frame velocity command to robot body frame before publishing.
+            # convert map-frame velocity command to robot body frame before publishing.
             vx_r, vy_r = _world_to_robot(float(v_cmd[0]), float(v_cmd[1]), self.headings[i])
 
             twist = Twist()

@@ -20,7 +20,7 @@
             <param name="orientation_stddev" value="0.05"/>
         </node>
         <!--ekf_node-->
-        <!--Changed: removed <remap from="/odom_raw" to="odom_raw"/> because odom0 in the YAML now uses a relative path, making the remap redundant.-->
+        <!--changed: removed <remap from="/odom_raw" to="odom_raw"/> because odom0 in the YAML now uses a relative path, making the remap redundant.-->
         <node name="ekf_filter_node" pkg="robot_localization" exec="ekf_node">
             <param name="odom_frame" value="$(var robot_name)/odom"/>
             <param name="base_link_frame" value="$(var robot_name)/base_footprint"/>
@@ -28,13 +28,13 @@
             <param from="$(find-pkg-share yahboomcar_multi)/param/X3_ekf_$(var robot_name).yaml"/>
             <remap from="odometry/filtered" to="odom"/>
         </node>
-        <!--Changed: static transform base_link→laser. SLAM drops all scans without this because
+        <!--changed: static transform base_link→laser. SLAM drops all scans without this because
              the lidar publishes in the laser frame but TF has no path from laser to the robot.
              Values match the X3 physical laser mount (from X3_amcl configs).-->
         <node pkg="tf2_ros" exec="static_transform_publisher" name="base_link_to_laser"
               args="0.0435 5.258e-05 0.11 3.14 0 0 $(var robot_name)/base_link $(var robot_name)/laser"/>
 	</group>
-    <!--Changed: replaced hardcoded description_X3_multi_$(var robot_name).launch.py with a single generic launch that accepts robot_name as an argument.-->
+    <!--changed: replaced hardcoded description_X3_multi_$(var robot_name).launch.py with a single generic launch that accepts robot_name as an argument.-->
     <include file="$(find-pkg-share yahboomcar_description)/launch/description_X3_multi_launch.py">
         <arg name="robot_name" value="$(var robot_name)"/>
     </include>

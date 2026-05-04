@@ -1,6 +1,6 @@
-# New file: replaces separate description_X3_multi_robot1/2.launch.py files with one parameterised launch,
+# new file: replaces separate description_X3_multi_robot1/2.launch.py files with one parameterised launch,
 # eliminating the need to add a new file per robot name.
-# Uses OpaqueFunction for path construction — PathJoinSubstitution nested lists are not supported in Foxy.
+# uses OpaqueFunction for path construction — PathJoinSubstitution nested lists are not supported in Foxy.
 import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription

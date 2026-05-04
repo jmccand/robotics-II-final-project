@@ -14,7 +14,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_ros/transform_broadcaster.h>
-// Removed: #include <turtlesim/msg/pose.hpp> — unused; paired with removal of find_package(turtlesim) in CMakeLists.txt.
+// removed: #include <turtlesim/msg/pose.hpp> — unused; paired with removal of find_package(turtlesim) in CMakeLists.txt.
 
 #include <memory>
 #include <string>
@@ -78,6 +78,10 @@ class OdomPublisher:public rclcpp ::Node
 			linear_velocity_x_ = msg->linear.x * linear_scale_x_;
 			linear_velocity_y_ = msg->linear.y * linear_scale_y_;
 			angular_velocity_z_ = msg->angular.z;
+            // fixed: seed last_vel_time_ on first message to avoid epoch-0 vel_dt_ spike.
+            if (last_vel_time_.nanoseconds() == 0) {
+                last_vel_time_ = current_time;
+            }
 			vel_dt_ = (current_time - last_vel_time_).seconds();
 			last_vel_time_ = current_time;
 			//compute odometry in a typical way given the velocities of the robot

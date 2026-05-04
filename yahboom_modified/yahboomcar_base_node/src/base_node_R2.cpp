@@ -14,7 +14,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_ros/transform_broadcaster.h>
-// Removed: #include <turtlesim/msg/pose.hpp> — unused; paired with removal of find_package(turtlesim) in CMakeLists.txt.
+// removed: #include <turtlesim/msg/pose.hpp> — unused; paired with removal of find_package(turtlesim) in CMakeLists.txt.
 
 #include <memory>
 #include <string>
@@ -76,6 +76,10 @@ class OdomPublisher:public rclcpp ::Node
 	  	  	rclcpp::Time curren_time = rclcpp::Clock().now();
 	  	  	linear_velocity_x_ = msg->linear.x * linear_scale_x_;// scale = 1
     		linear_velocity_y_ = msg->linear.y * linear_scale_y_;
+            // fixed: seed last_vel_time_ on first message to avoid epoch-0 vel_dt_ spike.
+            if (last_vel_time_.nanoseconds() == 0) {
+                last_vel_time_ = curren_time;
+            }
 			vel_dt_ = (curren_time - last_vel_time_).seconds();
             //std::cout<<"curren_time: "<<curren_time.seconds()<<std::endl;
            // std::cout<<"vel_dt: "<<vel_dt_<<std::endl;

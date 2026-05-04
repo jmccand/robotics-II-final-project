@@ -164,16 +164,24 @@ ros2 launch yahboomcar_multi X3_amcl_robot2_launch.py
 
 This runs AMCL with `odom_frame: robot2/odom`, `base_frame: robot2/base_footprint`, and `global_frame: map`, publishing `map → robot2/odom`. AMCL subscribes to `/map` (published by SLAM on robot1) and `/robot2/scan`.
 
-AMCL starts with a random particle distribution and needs an initial pose estimate to converge quickly. From **robot1's Jetson**, set robot2's starting position in the map:
+**Physical setup:** place robot2 **0.5 m directly behind robot1**, both facing the same direction. SLAM sets the map origin at robot1's starting position with +x forward, so robot2's starting map coordinates are `(-0.5, 0)`.
+
+Set the initial pose from **robot1's Jetson**:
 
 ```bash
 ros2 topic pub --once /robot2/initialpose geometry_msgs/msg/PoseWithCovarianceStamped \
-  '{header: {frame_id: map}, pose: {pose: {position: {x: 0.5, y: 0.0, z: 0.0},
-  orientation: {w: 1.0}}, covariance: [0.25,0,0,0,0,0, 0,0.25,0,0,0,0,
-  0,0,0,0,0,0, 0,0,0,0,0,0, 0,0,0,0,0,0, 0,0,0,0,0,0.068]}}'
+  '{header: {frame_id: map}, pose: {pose: {position: {x: -0.5, y: 0.0, z: 0.0},
+  orientation: {w: 1.0}}, covariance: [0.5,0,0,0,0,0, 0,0.5,0,0,0,0,
+  0,0,0,0,0,0, 0,0,0,0,0,0, 0,0,0,0,0,0, 0,0,0,0,0,0.1]}}'
 ```
 
-Adjust `x`, `y`, and the orientation to match where robot2 actually started. Once the TF chain `map → robot2/odom → robot2/base_footprint` appears in `ros2 run tf2_tools view_frames`, both robots are in the shared frame and formation control can start.
+Verify convergence before starting formation control:
+
+```bash
+ros2 run tf2_ros tf2_echo map robot2/base_footprint
+```
+
+Once that prints a steady stream of transforms, both robots are in the shared map frame and formation control can start.
 
 ---
 
@@ -187,26 +195,34 @@ ros2 launch formation_control hardware.launch.py
 
 The node waits until TF can resolve `map → robotN/base_footprint` for all robots, initializes a straight-line path starting at robot1's map-frame position, then commands all robots at 20 Hz.
 
-**Optional arguments** (append as `key:=value`):
+**Environment presets** (`env:=<name>` sets a group of parameters at once):
+
+| `env` | Description | Overrides |
+|---|---|---|
+| `default` | 2 m path along map +x axis | — |
+| `forward` | 3 m straight ahead in the leader's facing direction at launch | `path_length=3.0`, `use_robot_heading=true` |
+
+```bash
+# Forward environment (default) — works with any controller
+ros2 launch formation_control hardware.launch.py
+ros2 launch formation_control hardware.launch.py controller:=behavior
+ros2 launch formation_control hardware.launch.py controller:=virtual_structure
+```
+
+**Individual arguments** (append as `key:=value` to override):
 
 | Argument | Default | Options |
 |---|---|---|
+| `env` | `forward` | `default` \| `forward` |
 | `controller` | `leader_follower` | `behavior` \| `virtual_structure` \| `leader_follower` |
-| `formation_type` | `line` | `line` \| `triangle` \| `diamond` |
+| `formation_type` | `column` | `column` \| `line` \| `triangle` \| `diamond` |
 | `formation_spacing` | `0.5` | spacing in metres |
 | `num_robots` | `2` | number of robots |
-| `path_length` | `2.0` | trajectory length in metres |
-| `path_angle_deg` | `0.0` | path heading in degrees (0 = +x axis) |
-| `max_hw_speed` | `0.3` | velocity cap sent to robots (m/s) |
+| `path_length` | `2.0` | trajectory length in metres (ignored by `forward` env) |
+| `path_angle_deg` | `0.0` | path heading in degrees — ignored when `env:=forward` |
+| `max_hw_speed` | `0.15` | velocity cap sent to robots (m/s) |
 | `path_speed` | `0.05` | rate of path parameter advance (s⁻¹) |
 | `map_frame` | `map` | TF root frame shared by both robots |
-
-Example:
-
-```bash
-ros2 launch formation_control hardware.launch.py \
-  controller:=behavior formation_type:=triangle formation_spacing:=0.6 max_hw_speed:=0.2
-```
 
 `Ctrl+C` stops the node and sends a zero-velocity command to all robots.
 
@@ -240,4 +256,4 @@ ros2 launch formation_control hardware.launch.py \
 
 - Each robot **must** have a unique `robot_name` — never reuse a name across two bringup launches.
 - Run SLAM Toolbox **exactly once** — a second instance will produce a conflicting `/map`.
-- `max_hw_speed` should not exceed `0.5 m/s` indoors; the robots have no brake and will overshoot.
+- Default `max_hw_speed` is `0.15 m/s`. Do not exceed `0.5 m/s` indoors; the robots have no brake and will overshoot.

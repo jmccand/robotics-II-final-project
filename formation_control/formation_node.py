@@ -22,7 +22,7 @@ _CONTROLLERS = {
     'leader_follower': LeaderFollowerController,
 }
 
-# Topics follow the namespacing pattern seen in ros2 topic list.
+# topics follow the namespacing pattern seen in ros2 topic list.
 _ODOM_TOPICS = ['/robot1/odom', '/robot2/odom']
 _CMD_TOPICS   = ['/robot1/cmd_vel', '/robot2/cmd_vel']
 
@@ -80,7 +80,7 @@ class FormationNode(Node):
         self._timer = self.create_timer(self._dt, self._control_loop)
         self.get_logger().info('Waiting for odometry from all robots...')
 
-        # Open /dev/tty directly so the keyboard listener works even when
+        # open /dev/tty directly so the keyboard listener works even when
         # ros2 launch has redirected stdin (which makes isatty() return False).
         self._tty = None
         self._tty_old_settings = None  # saved here so main() can restore on any exit
@@ -94,7 +94,7 @@ class FormationNode(Node):
             self.get_logger().warn(f'Keyboard listener unavailable: {e}')
 
     def _keyboard_listener(self):
-        """Read keypresses from /dev/tty in raw mode. SPACE toggles start/pause."""
+        # reads keypresses from /dev/tty in raw mode; SPACE toggles start/pause
         fd = self._tty.fileno()
         try:
             tty.setraw(fd)
@@ -125,7 +125,7 @@ class FormationNode(Node):
         first_recv = not self._received[robot_idx]
         self._received[robot_idx] = True
 
-        # Build path relative to leader (robot 0) on its very first odom message
+        # build path relative to leader (robot 0) on its very first odom message
         if robot_idx == 0 and first_recv and self._path is None:
             start_pos = state[:2].copy()
             self._path      = build_path(self, start_pos, yaw)
@@ -168,8 +168,8 @@ def main(args=None):
         pass
     finally:
         node._stop_robots()
-        # Restore terminal settings before exit so the shell isn't left in raw mode.
-        # This runs in the main thread, so it's guaranteed even when the daemon
+        # restore terminal settings before exit so the shell isn't left in raw mode.
+        # this runs in the main thread, so it's guaranteed even when the daemon
         # keyboard thread is killed by Ctrl-C before its own cleanup can execute.
         if node._tty is not None and node._tty_old_settings is not None:
             try:

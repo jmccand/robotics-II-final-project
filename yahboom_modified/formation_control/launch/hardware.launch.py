@@ -3,7 +3,7 @@ from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
-# Named environment presets — each entry overrides only the keys it cares about.
+# named environment presets — each entry overrides only the keys it cares about.
 _ENV_PRESETS = {
     'forward': {
         'path_length': 3.0,
@@ -48,8 +48,8 @@ def generate_launch_description():
                               description='Named environment preset: default | forward'),
         DeclareLaunchArgument('controller', default_value='leader_follower',
                               description='behavior | virtual_structure | leader_follower'),
-        DeclareLaunchArgument('formation_type', default_value='line',
-                              description='line | triangle | diamond'),
+        DeclareLaunchArgument('formation_type', default_value='column',
+                              description='column | line | triangle | diamond'),
         DeclareLaunchArgument('formation_spacing', default_value='0.5',
                               description='Inter-robot spacing (m)'),
         DeclareLaunchArgument('num_robots', default_value='2',
