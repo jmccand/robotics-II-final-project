@@ -37,6 +37,7 @@ class FormationHardwareNode(Node):
         self.declare_parameter('max_hw_speed', 0.3)
         self.declare_parameter('path_length', 2.0)
         self.declare_parameter('path_angle_deg', 0.0)
+        self.declare_parameter('use_robot_heading', False)
         self.declare_parameter('robot_prefix', 'robot')
         self.declare_parameter('path_speed', 0.05)
         self.declare_parameter('control_rate', 20.0)
@@ -49,6 +50,7 @@ class FormationHardwareNode(Node):
         self.max_speed = float(self.get_parameter('max_hw_speed').value)
         self.path_length = float(self.get_parameter('path_length').value)
         self.path_angle = math.radians(float(self.get_parameter('path_angle_deg').value))
+        self.use_robot_heading = bool(self.get_parameter('use_robot_heading').value)
         self.robot_prefix = str(self.get_parameter('robot_prefix').value)
         self.path_speed = float(self.get_parameter('path_speed').value)
         rate = float(self.get_parameter('control_rate').value)
@@ -138,10 +140,13 @@ class FormationHardwareNode(Node):
 
     def _init_path(self) -> None:
         start = self.states[0, :2].copy()
-        direction = np.array([math.cos(self.path_angle), math.sin(self.path_angle)])
+        # use_robot_heading: align path with the leader's current heading instead of a fixed map angle.
+        angle = self.headings[0] if self.use_robot_heading else self.path_angle
+        direction = np.array([math.cos(angle), math.sin(angle)])
         end = start + direction * self.path_length
         self.path = StraightLinePath(start, end)
-        self.get_logger().info(f'Path initialised in map frame: {start} → {end}')
+        src = 'robot heading' if self.use_robot_heading else f'map angle {math.degrees(angle):.1f}°'
+        self.get_logger().info(f'Path initialised ({src}): {start} → {end}')
 
     def _control_loop(self) -> None:
         if not self._lookup_all_poses():
