@@ -87,18 +87,13 @@ This starts, under each robot's namespace:
 
 ### Step 2 — Start SLAM on robot1 (builds the shared map)
 
-Run on **robot1's Jetson** only. The frame params tell SLAM to publish `map → robot1/odom` (the namespaced frame) instead of the default `map → odom`.
+Run on **robot1's Jetson** only.
 
 ```bash
-ros2 launch slam_toolbox online_async_launch.py use_sim_time:=false \
-  --ros-args \
-  -r /scan:=/robot1/scan \
-  -p odom_frame:=robot1/odom \
-  -p base_frame:=robot1/base_footprint \
-  -p map_frame:=map
+ros2 launch yahboomcar_multi X3_slam_robot1_launch.py
 ```
 
-SLAM will now publish the TF chain `map → robot1/odom → robot1/base_footprint`, placing robot1 in a shared world frame.
+This launches slam_toolbox with `yahboomcar_multi/param/X3_slam_robot1.yaml`, which sets `odom_frame: robot1/odom`, `base_frame: robot1/base_footprint`, and `scan_topic: /robot1/scan`. SLAM will publish the TF chain `map → robot1/odom → robot1/base_footprint`, placing robot1 in the shared world frame.
 
 ---
 
