@@ -44,7 +44,20 @@ Everything runs on the robots' Jetsons — no external laptop required. All comm
 
 On **both** Jetsons:
 - ROS2 Foxy installed and sourced (pre-installed on the Yahboom image)
-- Both Jetsons on the same network with the same `ROS_DOMAIN_ID` (environment variable)
+- `Rosmaster_Lib` Python package installed (pre-installed on the Yahboom image)
+- Both Jetsons on the same network with the same `ROS_DOMAIN_ID` (default 0)
+- The following ROS2 packages installed:
+  ```bash
+  sudo apt install \
+    ros-foxy-slam-toolbox \
+    ros-foxy-robot-localization \
+    ros-foxy-imu-filter-madgwick \
+    ros-foxy-teleop-twist-keyboard \
+    ros-foxy-joint-state-publisher \
+    ros-foxy-robot-state-publisher \
+    ros-foxy-nav2-amcl \
+    ros-foxy-nav2-lifecycle-manager
+  ```
 
 ---
 
@@ -56,9 +69,12 @@ On **each** Jetson, SSH into the robot and open a terminal in a docker container
 cd ~/codes/
 git clone <repo-url>
 cd robotics-II-final-project/yahboom_modified
-colcon build
-source ./install/setup.bash
+colcon build --symlink-install
+echo "source ~/codes/robotics-II-final-project/yahboom_modified/install/setup.bash" >> ~/.bashrc
+source ~/.bashrc
 ```
+
+This overlays the existing Yahboom workspace — no renaming needed. The last-sourced workspace wins, so all commands will use the packages from `yahboom_modified`. **Every new terminal must have the workspace sourced** (the `echo` line above handles that permanently).
 
 ---
 
@@ -67,14 +83,16 @@ source ./install/setup.bash
 On **robot1's Jetson**:
 
 ```bash
-ros2 launch yahboomcar_multi X3_bringup_multi.launch.xml robot_name:=robot1
+ros2 launch yahboomcar_multi X3_A1_bringup_multi.launch.xml robot_name:=robot1
 ```
 
 On **robot2's Jetson**:
 
 ```bash
-ros2 launch yahboomcar_multi X3_bringup_multi.launch.xml robot_name:=robot2
+ros2 launch yahboomcar_multi X3_A1_bringup_multi.launch.xml robot_name:=robot2
 ```
+
+If the lidar node exits immediately with a serial error, your robot has the S2 lidar — replace `X3_A1` with `X3_S2` in both commands (the only difference is baud rate).
 
 This starts, under each robot's namespace:
 - `Mcnamu_driver_X3` — hardware serial interface, subscribes to `/<robot_name>/cmd_vel`
@@ -82,6 +100,8 @@ This starts, under each robot's namespace:
 - `imu_filter_madgwick_node` — fuses IMU data
 - `ekf_filter_node` — fuses odometry + IMU, publishes `/<robot_name>/odom`
 - `robot_state_publisher` — broadcasts TF tree under `/<robot_name>/` frames
+- `sllidar_node` — lidar driver, publishes `/<robot_name>/scan` on `/dev/rplidar`
+- static transform `/<robot_name>/base_link → /<robot_name>/laser` (required for SLAM)
 
 ---
 
@@ -94,6 +114,20 @@ ros2 launch yahboomcar_multi X3_slam_robot1_launch.py
 ```
 
 This launches slam_toolbox with `yahboomcar_multi/param/X3_slam_robot1.yaml`, which sets `odom_frame: robot1/odom`, `base_frame: robot1/base_footprint`, and `scan_topic: /robot1/scan`. SLAM will publish the TF chain `map → robot1/odom → robot1/base_footprint`, placing robot1 in the shared world frame.
+
+**Verify SLAM is working** (run these on robot1's Jetson in a second terminal):
+
+```bash
+# 1. Confirm the map topic is publishing (should show ~0.1–1 Hz)
+ros2 topic hz /map
+
+# 2. Confirm the critical TF chain exists — this is what formation_control reads.
+#    If SLAM is working you will see a stream of position/orientation values.
+#    Ctrl+C to stop.
+ros2 run tf2_ros tf2_echo map robot1/base_footprint
+```
+
+If `tf2_echo` prints `Waiting for transform...` indefinitely, SLAM is not publishing the `map → robot1/odom` link — check that the bringup (Step 1) is running and that `/robot1/scan` has data (`ros2 topic hz /robot1/scan`).
 
 ---
 
@@ -151,7 +185,7 @@ Run on **robot1's Jetson**. Steps 1, 2, and 4 must already be running.
 ros2 launch formation_control hardware.launch.py
 ```
 
-The node waits until it receives odometry from all robots, initializes a straight-line path starting at robot1's position, then commands all robots at 20 Hz.
+The node waits until TF can resolve `map → robotN/base_footprint` for all robots, initializes a straight-line path starting at robot1's map-frame position, then commands all robots at 20 Hz.
 
 **Optional arguments** (append as `key:=value`):
 
