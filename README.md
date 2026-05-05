@@ -6,7 +6,7 @@ RPI Robotics II final project comparing four multi-robot formation control appro
 
 ## Simulation
 
-Install dependencies: `pip install numpy scipy matplotlib` plus `ffmpeg` for MP4 export.
+Install dependencies: `pip install numpy scipy matplotlib`.
 
 ```bash
 # Single experiment
@@ -153,7 +153,7 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard \
 
 ### Step 4 — Localize robot2 in the map (AMCL)
 
-Robot1 is already localized by SLAM. Robot2 needs AMCL to join the same map frame. AMCL subscribes to `/map` directly from SLAM Toolbox's live output — no saved map file needed.
+Robot1 is already localized by SLAM. Robot2 needs AMCL to join the same map frame.
 
 On **robot2's Jetson**:
 
@@ -252,4 +252,3 @@ ros2 launch formation_control hardware.launch.py controller:=virtual_structure
 
 - Each robot **must** have a unique `robot_name` — never reuse a name across two bringup launches.
 - Run SLAM Toolbox **exactly once** — a second instance will produce a conflicting `/map`.
-- Default `max_hw_speed` is `0.15 m/s`. Do not exceed `0.5 m/s` indoors.
