@@ -75,7 +75,7 @@ class LeaderFollowerController(FormationController):
             path_heading = np.arctan2(tang[1], tang[0])
             slot = formation.desired_positions(path.point(t_proj), path_heading)[0]
             f_path = self.k_leader * (slot - pos)
-            f_along = self.k_tangent * tang  # constant forward drive along path tangent
+            f_along = self.k_tangent * tang if t_proj < 1.0 else np.zeros(2)
             f_align = -self.w_align * vel
             return f_path + f_along + f_align + f_avoid_robot + f_avoid_obs
         else:
@@ -84,6 +84,9 @@ class LeaderFollowerController(FormationController):
             f_follow = self.k_follow * (slot - pos)
             f_align = self.w_align * (states[parent, 2:] - vel)
             return f_follow + f_align + f_avoid_robot + f_avoid_obs
+
+    def should_terminate(self, states: np.ndarray, path: Path) -> bool:
+        return bool(path.closest_t(states[0, :2]) >= 0.9999)
 
     def desired_positions(
         self,

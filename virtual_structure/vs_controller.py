@@ -30,7 +30,7 @@ class VirtualStructureController(FormationController):
 
     def _fit(
         self, states: np.ndarray, formation: Formation
-    ) -> tuple[np.ndarray, float, np.ndarray]:
+    ) -> tuple[np.ndarray, float, np.ndarray, float]:
         # orthogonal Procrustes: find (centroid, heading, R) minimising
         # sum_i || x_i - (centroid + R @ o_i) ||^2
         X = states[:, :2]
@@ -41,7 +41,7 @@ class VirtualStructureController(FormationController):
 
         M = (X - x_bar).T @ (O - o_bar)
 
-        U, _, Vt = np.linalg.svd(M)
+        U, sv, Vt = np.linalg.svd(M)
         R = U @ Vt
         if np.linalg.det(R) < 0:
             U[:, -1] *= -1
@@ -49,12 +49,13 @@ class VirtualStructureController(FormationController):
 
         psi = np.arctan2(R[1, 0], R[0, 0])
         centroid = x_bar - R @ o_bar
+        sv_ratio = float(sv[1] / sv[0]) if sv[0] > 1e-9 else 0.0
 
-        return centroid, psi, R
+        return centroid, psi, R, sv_ratio
 
     def _get_fit(
         self, states: np.ndarray, formation: Formation, t: float
-    ) -> tuple[np.ndarray, float, np.ndarray]:
+    ) -> tuple[np.ndarray, float, np.ndarray, float]:
         if self._cache_t != t:
             self._cached_fit = self._fit(states, formation)
             self._cache_t = t
@@ -72,7 +73,7 @@ class VirtualStructureController(FormationController):
         pos = states[robot_idx, :2]
 
         # step 1: fit the virtual structure to current robot positions
-        centroid_fit, _, R_fit = self._get_fit(states, formation, t)
+        centroid_fit, _, R_fit, sv_ratio = self._get_fit(states, formation, t)
 
         # step 2: rigid-body transform from fitted pose to ideal pose on path
         tang = path.tangent(t)
@@ -95,7 +96,9 @@ class VirtualStructureController(FormationController):
             if 0.0 < dist < self.avoid_radius:
                 f_avoid_robot += diff / dist
 
-        step = self.slot_weight * (des_slot - pos) + (1 - self.slot_weight) * (ideal_slot - pos)
+        # fall back to ideal_slot-only when Procrustes is ill-conditioned
+        w = self.slot_weight if sv_ratio >= 0.2 else 0.0
+        step = w * (des_slot - pos) + (1 - w) * (ideal_slot - pos)
         v_cmd = self.k_slot * step
         v_cmd += self.w_avoid * f_avoid_robot
         v_cmd += self._repulse_obstacles(pos, obstacles, self.obs_avoid_radius, self.k_obs)

@@ -114,7 +114,7 @@ CONVERGENCE = Environment(
     obstacles=[],
     boundary=10.0,
     path_speed=0.0,
-    default_frames=500,
+    default_frames=800,
 )
 
 ENVIRONMENTS: dict[str, Environment] = {

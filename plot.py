@@ -137,7 +137,7 @@ class Plot:
             self._anim.save(filename, writer="ffmpeg")
         print(f"Saved animation to {filename}")
 
-    def plot_deviations(self) -> plt.Figure:
+    def plot_deviations(self, dt: float = 0.01, show_convergence_time: bool = False) -> plt.Figure:
         n_robots = self._states_history[0].shape[0]
         n_frames = len(self._states_history)
 
@@ -148,11 +148,27 @@ class Plot:
             for i in range(n_robots):
                 deviations[f, i] = np.linalg.norm(states[i, :2] - ideal[i])
 
+        max_dev = float(np.max(deviations))
+        total_auc = float(np.sum([np.trapezoid(deviations[:, i], dx=dt) for i in range(n_robots)]))
+        time_s = np.arange(n_frames) * dt
+
+        if show_convergence_time:
+            threshold = 0.05 * max_dev
+            max_per_frame = np.max(deviations, axis=1)
+            above = np.where(max_per_frame > threshold)[0]
+            if len(above) == 0:
+                left_label = "Convergence time: 0.000 s"
+            else:
+                left_label = f"Convergence time: {(above[-1] + 1) * dt:.3f} s"
+        else:
+            left_label = f"Max deviation: {max_dev:.3f}"
+
         fig, ax = plt.subplots(figsize=(10, 4))
         for i in range(n_robots):
-            ax.plot(deviations[:, i], label=f"Robot {i}")
-        ax.set_xlabel("Frame")
+            ax.plot(time_s, deviations[:, i], label=f"Robot {i}")
+        ax.set_xlabel("Time (s)")
         ax.set_ylabel("Deviation from slot (units)")
+        ax.set_title(f"{left_label}  |  Total AUC: {total_auc:.2f} s·units")
         ax.legend()
         ax.grid(True, alpha=0.3)
         return fig

@@ -84,6 +84,8 @@ def simulate(
 
         states = new_states
         t = min(t + env.path_speed * dynamics.dt, 1.0)
+        if env.path_speed > 0 and (t >= 1.0 or controller.should_terminate(states, env.path)):
+            break
 
     plotter.animate()
     if video_path:
@@ -92,7 +94,7 @@ def simulate(
     else:
         plt.show()
 
-    fig = plotter.plot_deviations()
+    fig = plotter.plot_deviations(dynamics.dt, show_convergence_time=(env.path_speed == 0.0))
     if plot_path:
         fig.savefig(plot_path, dpi=150, bbox_inches="tight")
         plt.close(fig)

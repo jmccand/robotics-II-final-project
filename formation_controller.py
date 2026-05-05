@@ -44,6 +44,9 @@ class FormationController(ABC):
         heading = np.arctan2(tang[1], tang[0])
         return formation.desired_positions(path.point(t), heading)
 
+    def should_terminate(self, states: np.ndarray, path: Path) -> bool:
+        return False
+
     def ideal_positions(
         self,
         states: np.ndarray,
