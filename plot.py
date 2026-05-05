@@ -86,7 +86,7 @@ class Plot:
                 ax.scatter([states[d, 0]], [states[d, 1]], c="lightgray", s=size, zorder=4,
                            edgecolors="gray", linewidths=1)
             for i, s in enumerate(states):
-                ax.annotate(str(i), (s[0], s[1]), fontsize=7, fontweight="bold",
+                ax.annotate(str(i + 1), (s[0], s[1]), fontsize=7, fontweight="bold",
                             ha="center", va="center", color="white", zorder=5)
 
         def draw_frame(frame_idx: int) -> None:
@@ -148,12 +148,12 @@ class Plot:
             for i in range(n_robots):
                 deviations[f, i] = np.linalg.norm(states[i, :2] - ideal[i])
 
-        max_dev = float(np.max(deviations))
-        total_auc = float(np.sum([np.trapezoid(deviations[:, i], dx=dt) for i in range(n_robots)]))
+        l_inf = float(np.max(deviations))
+        l2_norm = float(np.sqrt(np.sum(deviations ** 2) * dt))
         time_s = np.arange(n_frames) * dt
 
         if show_convergence_time:
-            threshold = 0.05 * max_dev
+            threshold = 0.05 * l_inf
             max_per_frame = np.max(deviations, axis=1)
             above = np.where(max_per_frame > threshold)[0]
             if len(above) == 0:
@@ -161,14 +161,14 @@ class Plot:
             else:
                 left_label = f"Convergence time: {(above[-1] + 1) * dt:.3f} s"
         else:
-            left_label = f"Max deviation: {max_dev:.3f}"
+            left_label = f"L∞: {l_inf:.3f}"
 
         fig, ax = plt.subplots(figsize=(10, 4))
         for i in range(n_robots):
-            ax.plot(time_s, deviations[:, i], label=f"Robot {i}")
+            ax.plot(time_s, deviations[:, i], label=f"Robot {i + 1}")
         ax.set_xlabel("Time (s)")
-        ax.set_ylabel("Deviation from slot (units)")
-        ax.set_title(f"{left_label}  |  Total AUC: {total_auc:.2f} s·units")
+        ax.set_ylabel("Deviation from slot (m)")
+        ax.set_title(f"{left_label}  |  L2: {l2_norm:.3f}")
         ax.legend()
         ax.grid(True, alpha=0.3)
         return fig

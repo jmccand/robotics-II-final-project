@@ -1,6 +1,6 @@
 # robotics-II-final-project
 
-RPI Robotics II final project comparing three multi-robot formation control approaches: leader-follower, virtual structure, and behavior-based. The project includes a pure Python simulation and a ROS2 hardware layer for ROSMASTER-X3 robots.
+RPI Robotics II final project comparing four multi-robot formation control approaches: behavior-based, virtual structure, leader-follower (chain), and leader-follower (direct). The project includes a pure Python simulation and a ROS2 hardware layer for ROSMASTER-X3 robots with A1 lidar.
 
 ---
 
@@ -10,32 +10,36 @@ Install dependencies: `pip install numpy scipy matplotlib` plus `ffmpeg` for MP4
 
 ```bash
 # Single experiment
-python main.py --env straight_line --controller leader_follower --formation line --save
+python main.py --env straight_line --controller leader_follower --formation diamond --save
 
 # --env:        straight_line | quadratic | obstacles | convergence
-# --controller: behavior | virtual_structure | leader_follower
+# --controller: behavior | virtual_structure | leader_follower | direct_leader_follower
 # --formation:  line | triangle | diamond
+# --ic          initial formation (convergence tests only, e.g. --ic line --n 4)
 # --save        write MP4 to videos/ and PNG to plots/
 
-# Full batch (all 3 controllers × 5 environments)
+# Full batch (all 4 controllers × 5 environments)
 python run_batch.py
+
+# Comparison figures (straight-line and dropout side by side)
+python plot_comparison.py
 ```
 
 ---
 
-## Hardware (ROSMASTER-X3, ROS2 Foxy)
+## Hardware (ROSMASTER-X3 + A1 lidar, ROS2 Foxy)
 
 `yahboom_modified/` is a self-contained colcon workspace with 7 ROS2 packages:
 
 ```
 yahboom_modified/
 ├── formation_control/      ← new: hardware bridge node + launch
-├── yahboomcar_base_node/   ← patched: removed unused turtlesim dependency
+├── yahboomcar_base_node/   ← patched: last_vel_time_ epoch-0 bug fix
 ├── yahboomcar_bringup/     ← Yahboom motor driver
 ├── yahboomcar_ctrl/        ← keyboard / joystick teleop
-├── yahboomcar_description/ ← URDF + patched: added generic multi-robot description launch
+├── yahboomcar_description/ ← URDF + generic multi-robot description launch
 ├── yahboomcar_msgs/        ← Yahboom custom message types
-└── yahboomcar_multi/       ← patched: multi-robot bringup launch + EKF params
+└── yahboomcar_multi/       ← patched: multi-robot bringup, EKF params, SLAM launch
 ```
 
 Everything runs on the robots' Jetsons — no external laptop required. All commands below are run over SSH or in a terminal on the relevant Jetson.
@@ -63,7 +67,7 @@ On **both** Jetsons:
 
 ### Step 0 — Clone and build (once per Jetson)
 
-On **each** Jetson, SSH into the robot and open a terminal in a docker container. Then:
+On **each** Jetson:
 
 ```bash
 cd ~/codes/
@@ -74,7 +78,7 @@ echo "source ~/codes/robotics-II-final-project/yahboom_modified/install/setup.ba
 source ~/.bashrc
 ```
 
-This overlays the existing Yahboom workspace — no renaming needed. The last-sourced workspace wins, so all commands will use the packages from `yahboom_modified`. **Every new terminal must have the workspace sourced** (the `echo` line above handles that permanently).
+This overlays the existing Yahboom workspace. The last-sourced workspace wins, so all commands will use the packages from `yahboom_modified`. **Every new terminal must have the workspace sourced** (the `echo` line above handles that permanently).
 
 ---
 
@@ -92,20 +96,18 @@ On **robot2's Jetson**:
 ros2 launch yahboomcar_multi X3_A1_bringup_multi.launch.xml robot_name:=robot2
 ```
 
-If the lidar node exits immediately with a serial error, your robot has the S2 lidar — replace `X3_A1` with `X3_S2` in both commands (the only difference is baud rate).
-
 This starts, under each robot's namespace:
 - `Mcnamu_driver_X3` — hardware serial interface, subscribes to `/<robot_name>/cmd_vel`
 - `base_node_X3` — wheel-encoder odometry, publishes `/<robot_name>/odom_raw`
 - `imu_filter_madgwick_node` — fuses IMU data
 - `ekf_filter_node` — fuses odometry + IMU, publishes `/<robot_name>/odom`
 - `robot_state_publisher` — broadcasts TF tree under `/<robot_name>/` frames
-- `sllidar_node` — lidar driver, publishes `/<robot_name>/scan` on `/dev/rplidar`
+- `sllidar_node` — A1 lidar driver, publishes `/<robot_name>/scan`
 - static transform `/<robot_name>/base_link → /<robot_name>/laser` (required for SLAM)
 
 ---
 
-### Step 2 — Start SLAM on robot1 (builds the shared map)
+### Step 2 — Start SLAM on robot1
 
 Run on **robot1's Jetson** only.
 
@@ -113,27 +115,25 @@ Run on **robot1's Jetson** only.
 ros2 launch yahboomcar_multi X3_slam_robot1_launch.py
 ```
 
-This launches slam_toolbox with `yahboomcar_multi/param/X3_slam_robot1.yaml`, which sets `odom_frame: robot1/odom`, `base_frame: robot1/base_footprint`, and `scan_topic: /robot1/scan`. SLAM will publish the TF chain `map → robot1/odom → robot1/base_footprint`, placing robot1 in the shared world frame.
+This launches `slam_toolbox` with `yahboomcar_multi/param/X3_slam_robot1.yaml`, which sets `odom_frame: robot1/odom`, `base_frame: robot1/base_footprint`, and `scan_topic: /robot1/scan`. SLAM publishes the TF chain `map → robot1/odom → robot1/base_footprint`, placing robot1 in the shared world frame.
 
-**Verify SLAM is working** (run these on robot1's Jetson in a second terminal):
+**Verify SLAM is working:**
 
 ```bash
-# 1. Confirm the map topic is publishing (should show ~0.1–1 Hz)
+# Confirm the map topic is publishing (~0.1–1 Hz)
 ros2 topic hz /map
 
-# 2. Confirm the critical TF chain exists — this is what formation_control reads.
-#    If SLAM is working you will see a stream of position/orientation values.
-#    Ctrl+C to stop.
+# Confirm the TF chain — should stream position/orientation values
 ros2 run tf2_ros tf2_echo map robot1/base_footprint
 ```
 
-If `tf2_echo` prints `Waiting for transform...` indefinitely, SLAM is not publishing the `map → robot1/odom` link — check that the bringup (Step 1) is running and that `/robot1/scan` has data (`ros2 topic hz /robot1/scan`).
+If `tf2_echo` prints `Waiting for transform...` indefinitely, check that the bringup is running and that `/robot1/scan` has data (`ros2 topic hz /robot1/scan`).
 
 ---
 
 ### Step 3 — Drive the robots to build the map
 
-SSH two terminals (or use `tmux`). `Ctrl+C` when mapping is done.
+Use `tmux` or two SSH sessions. `Ctrl+C` when mapping is done.
 
 On **robot1's Jetson**:
 
@@ -153,16 +153,13 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard \
 
 ### Step 4 — Localize robot2 in the map (AMCL)
 
-Robot1 is already localized by SLAM. Robot2 needs AMCL to join the same map frame.
-AMCL subscribes to `/map` directly from SLAM Toolbox's live output — no saved map file needed.
+Robot1 is already localized by SLAM. Robot2 needs AMCL to join the same map frame. AMCL subscribes to `/map` directly from SLAM Toolbox's live output — no saved map file needed.
 
 On **robot2's Jetson**:
 
 ```bash
 ros2 launch yahboomcar_multi X3_amcl_robot2_launch.py
 ```
-
-This runs AMCL with `odom_frame: robot2/odom`, `base_frame: robot2/base_footprint`, and `global_frame: map`, publishing `map → robot2/odom`. AMCL subscribes to `/map` (published by SLAM on robot1) and `/robot2/scan`.
 
 **Physical setup:** place robot2 **0.5 m directly behind robot1**, both facing the same direction. SLAM sets the map origin at robot1's starting position with +x forward, so robot2's starting map coordinates are `(-0.5, 0)`.
 
@@ -175,13 +172,13 @@ ros2 topic pub --once /robot2/initialpose geometry_msgs/msg/PoseWithCovarianceSt
   0,0,0,0,0,0, 0,0,0,0,0,0, 0,0,0,0,0,0, 0,0,0,0,0,0.1]}}'
 ```
 
-Verify convergence before starting formation control:
+Verify before proceeding:
 
 ```bash
 ros2 run tf2_ros tf2_echo map robot2/base_footprint
 ```
 
-Once that prints a steady stream of transforms, both robots are in the shared map frame and formation control can start.
+Once that prints a steady stream of transforms, both robots are in the shared map frame.
 
 ---
 
@@ -193,9 +190,9 @@ Run on **robot1's Jetson**. Steps 1, 2, and 4 must already be running.
 ros2 launch formation_control hardware.launch.py
 ```
 
-The node waits until TF can resolve `map → robotN/base_footprint` for all robots, initializes a straight-line path starting at robot1's map-frame position, then commands all robots at 20 Hz.
+The node waits until TF resolves `map → robotN/base_footprint` for all robots, initializes a straight-line path starting at robot1's map-frame position, then commands all robots at 20 Hz.
 
-**Environment presets** (`env:=<name>` sets a group of parameters at once):
+**Environment presets** (`env:=<name>` sets a group of parameters):
 
 | `env` | Description | Overrides |
 |---|---|---|
@@ -203,13 +200,12 @@ The node waits until TF can resolve `map → robotN/base_footprint` for all robo
 | `forward` | 3 m straight ahead in the leader's facing direction at launch | `path_length=3.0`, `use_robot_heading=true` |
 
 ```bash
-# Forward environment (default) — works with any controller
 ros2 launch formation_control hardware.launch.py
 ros2 launch formation_control hardware.launch.py controller:=behavior
 ros2 launch formation_control hardware.launch.py controller:=virtual_structure
 ```
 
-**Individual arguments** (append as `key:=value` to override):
+**All arguments:**
 
 | Argument | Default | Options |
 |---|---|---|
@@ -219,7 +215,7 @@ ros2 launch formation_control hardware.launch.py controller:=virtual_structure
 | `formation_spacing` | `0.5` | spacing in metres |
 | `num_robots` | `2` | number of robots |
 | `path_length` | `2.0` | trajectory length in metres (ignored by `forward` env) |
-| `path_angle_deg` | `0.0` | path heading in degrees — ignored when `env:=forward` |
+| `path_angle_deg` | `0.0` | path heading in degrees (ignored when `env:=forward`) |
 | `max_hw_speed` | `0.15` | velocity cap sent to robots (m/s) |
 | `path_speed` | `0.05` | rate of path parameter advance (s⁻¹) |
 | `map_frame` | `map` | TF root frame shared by both robots |
@@ -234,7 +230,7 @@ ros2 launch formation_control hardware.launch.py controller:=virtual_structure
         robot1 Jetson                              robot2 Jetson
   ┌──────────────────────────┐             ┌──────────────────────┐
   │  bringup (robot_name=robot1)           │  bringup (robot_name=robot2)
-  │  ekf → robot1/odom→      │             │  ekf → robot2/odom→  │
+  │  ekf → robot1/odom       │             │  ekf → robot2/odom   │
   │         robot1/base_fprint             │       robot2/base_fprint
   │  driver ← /robot1/cmd_vel             │  driver ← /robot2/cmd_vel
   │  lidar  → /robot1/scan   │             │  lidar  → /robot2/scan│
@@ -256,4 +252,4 @@ ros2 launch formation_control hardware.launch.py controller:=virtual_structure
 
 - Each robot **must** have a unique `robot_name` — never reuse a name across two bringup launches.
 - Run SLAM Toolbox **exactly once** — a second instance will produce a conflicting `/map`.
-- Default `max_hw_speed` is `0.15 m/s`. Do not exceed `0.5 m/s` indoors; the robots have no brake and will overshoot.
+- Default `max_hw_speed` is `0.15 m/s`. Do not exceed `0.5 m/s` indoors.

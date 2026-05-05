@@ -42,7 +42,7 @@ class BehaviorController(FormationController):
         slot = formation.desired_positions(path.point(t), heading)[robot_idx]
 
         f_formation = slot - pos
-        f_align = tang - vel
+        f_align = -vel
 
         f_avoid_robot = np.zeros(2)
         for j, other in enumerate(states):

@@ -17,12 +17,14 @@ from plot import Plot
 from behavior.behavior_controller import BehaviorController
 from virtual_structure.vs_controller import VirtualStructureController
 from leader_follower.lf_controller import LeaderFollowerController
+from leader_follower.dlf_controller import DirectLeaderFollowerController
 
 
 CONTROLLERS: dict[str, type[FormationController]] = {
     "behavior": BehaviorController,
     "virtual_structure": VirtualStructureController,
     "leader_follower": LeaderFollowerController,
+    "direct_leader_follower": DirectLeaderFollowerController,
 }
 
 FORMATION_NAMES = ["line", "triangle", "diamond"]

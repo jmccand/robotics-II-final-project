@@ -4,7 +4,7 @@ import sys
 
 PYTHON = sys.executable
 
-ALL_CONTROLLERS = ["behavior", "virtual_structure", "leader_follower"]
+ALL_CONTROLLERS = ["behavior", "virtual_structure", "leader_follower", "direct_leader_follower"]
 
 # (key shown in --filter, --env passed to main.py, extra args)
 ALL_CONFIGS = [
